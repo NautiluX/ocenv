@@ -17,8 +17,9 @@ go get github.com/NautiluX/ocenv
 `ocenv` creates a directory in `~/ocenv/` for each cluster named by the alias. It contains an `.envrc` to set `$KUBECONFIG` and `$OCM_CONFIG` when the user enters the directory.
 
 You can run `ocenv my-cluster` to create a new environment or switch between environments. Each environment will use a separate `$KUBECONFIG` so you can easily switch between them.
+`my-cluster` in this case is an alias that you can use to identify you cluster later.
 
-Optionally, you can run `ocenv -c my-cluster-id` to set the `$CLUSTERID` variable in the environment. This is useful to log in to OSD clusters. When using `ocm` you can use the shorthands `ocl` to log in to the cluster, and `oct` to create a tunnel when inside the environment, and `ocb` to log in with the backplane plugin.
+Optionally, you can run `ocenv -c my-cluster-id my-cluster` to set the `$CLUSTERID` variable in the environment. This is useful to log in to OSD clusters. When using `ocm` you can use the shorthands `ocl` to log in to the cluster, `oct` to create a tunnel when inside the environment, and `ocb` to log in with the backplane plugin.
 
 You can leave an environment by pressing `ctrl+D`.
 
@@ -45,3 +46,12 @@ $ oc get pods .... # investigate
 $ exit # tunnel and login loop will be closed on exit, environment will be cleaned up.
 ```
 
+#### Use KUBECONFIG outside of the env
+
+```
+$ ocenv -l prod-login.sh -t -c hf203489-23fsdf-23rsdf my-cluster
+$ ocb # login to the cluster
+... in some other shell ...
+$ `ocenv -k my-cluster` # use KUBECONFIG from environment
+$ oc get pods ...
+```
