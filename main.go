@@ -11,17 +11,20 @@ import (
 	"os/user"
 	"strconv"
 	"syscall"
+
+	flags "github.com/jessevdk/go-flags"
 )
 
 type Options struct {
-	ClusterId        string
-	Alias            string
-	Environment      string
-	LoginScript      string
-	ExportKubeConfig bool
-	ResetEnv         bool
-	TempEnv          bool
-	DeleteEnv        bool
+	ClusterId        string `short:"c" long:"cluster-id" description:"Cluster ID"`
+	LoginScript      string `short:"l" long:"login-script" description:"OCM login script to execute in a loop in ocb every 30 seconds"`
+	ExportKubeConfig bool   `short:"k" long:"export-kubeconfig" description:"Output export kubeconfig statement, to use environment outside of directory"`
+	ResetEnv         bool   `short:"r" long:"reset" description:"Reset environment"`
+	TempEnv          bool   `short:"t" long:"temp" description:"Delete environment on exit"`
+	DeleteEnv        bool   `short:"d" long:"delete" description:"Delete environment"`
+	Positional       struct {
+		Alias string
+	} `positional-args:"yes"`
 }
 
 type OcEnv struct {
@@ -35,31 +38,24 @@ func init() {
 
 func main() {
 	options := Options{}
-	flag.Usage = usage
-	flag.StringVar(&options.ClusterId, "c", "", "Cluster ID")
-	flag.StringVar(&options.LoginScript, "l", "", "OCM login script to execute in a loop in ocb every 30 seconds")
-	flag.BoolVar(&options.ExportKubeConfig, "k", false, "Export KubeConfig")
-	flag.BoolVar(&options.ResetEnv, "r", false, "Reset environment")
-	flag.BoolVar(&options.TempEnv, "t", false, "Delete environment on exit")
-	flag.BoolVar(&options.DeleteEnv, "d", false, "Delete environment")
-	flag.Parse()
+	flags.Parse(&options)
 
 	if flag.CommandLine.NArg() > 0 {
-		options.Alias = flag.Arg(0)
+		options.Positional.Alias = flag.Arg(0)
 	}
 
-	if options.ClusterId == "" && options.Alias == "" {
+	if options.ClusterId == "" && options.Positional.Alias == "" {
 		flag.Usage()
 		log.Fatal("ClusterId or Alias required")
 	}
 
-	if options.Alias == "" {
+	if options.Positional.Alias == "" {
 		log.Println("No Alias set, using cluster ID")
-		options.Alias = options.ClusterId
+		options.Positional.Alias = options.ClusterId
 	}
 
 	env := OcEnv{
-		Path:    os.Getenv("HOME") + "/ocenv/" + options.Alias,
+		Path:    os.Getenv("HOME") + "/ocenv/" + options.Positional.Alias,
 		Options: options,
 	}
 	env.Setup()
@@ -76,11 +72,6 @@ func main() {
 		env.Delete()
 	}
 
-}
-
-func usage() {
-	log.Printf("Usage: %s [OPTIONS] [<Alias>]\nEither <Alias> or <Cluster ID> must be passed.\n\nOptions:\n", os.Args[0])
-	flag.PrintDefaults()
 }
 
 func (e *OcEnv) Setup() {
@@ -111,7 +102,7 @@ func (e *OcEnv) Start() {
 		Dir:   e.Path,
 	}
 
-	fmt.Print("Switching to OpenShift environment " + e.Options.Alias + "\n")
+	fmt.Print("Switching to OpenShift environment " + e.Options.Positional.Alias + "\n")
 	proc, err := os.StartProcess("/usr/bin/login", []string{"login", "-fpl", me.Username}, &pa)
 	if err != nil {
 		panic(err)
@@ -167,7 +158,7 @@ func (e *OcEnv) killChilds() {
 
 }
 func (e *OcEnv) Delete() {
-	fmt.Printf("Cleaning up OpenShift environment %s\n", e.Options.Alias)
+	fmt.Printf("Cleaning up OpenShift environment %s\n", e.Options.Positional.Alias)
 	os.RemoveAll(e.Path)
 }
 
