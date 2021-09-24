@@ -102,8 +102,10 @@ func (e *OcEnv) Start() {
 		Dir:   e.Path,
 	}
 
+	shell := os.Getenv("SHELL")
+
 	fmt.Print("Switching to OpenShift environment " + e.Options.Positional.Alias + "\n")
-	proc, err := os.StartProcess("/usr/bin/login", []string{"login", "-fpl", me.Username}, &pa)
+	proc, err := os.StartProcess(shell, []string{}, &pa)
 	if err != nil {
 		panic(err)
 	}
