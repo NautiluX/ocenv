@@ -8,8 +8,8 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"os/user"
 	"strconv"
+	"strings"
 	"syscall"
 
 	flags "github.com/jessevdk/go-flags"
@@ -67,6 +67,7 @@ func main() {
 		env.PrintKubeConfigExport()
 		return
 	}
+	env.Migration()
 	env.Start()
 	if options.TempEnv {
 		env.Delete()
@@ -83,41 +84,56 @@ func (e *OcEnv) Setup() {
 		fmt.Println("Setting up environment...")
 		e.createBins()
 		e.ensureEnvVariables()
-		e.allowDirenv()
 	}
 }
 
 func (e *OcEnv) PrintKubeConfigExport() {
-	fmt.Printf("export KUBECONFIG=\"%s\"\n", e.Path+"/kubeconfig.json")
+	fmt.Printf("export KUBECONFIG=%s\n", e.Path+"/kubeconfig.json")
 }
 
+func (e *OcEnv) Migration() {
+	if _, err := os.Stat(e.Path + "/.envrc"); err == nil {
+		fmt.Println("Migrating from .envrc to .ocenv...")
+
+		file, err := os.Open(e.Path + "/.envrc")
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer file.Close()
+
+		scanner := bufio.NewScanner(file)
+		for scanner.Scan() {
+			line := scanner.Text()
+			if strings.HasPrefix(line, "export CLUSTERID=") {
+				e.Options.ClusterId = strings.ReplaceAll(line, "export CLUSTERID=", "")
+				e.Options.ClusterId = strings.ReplaceAll(line, "\"", "")
+			}
+		}
+
+		if err := scanner.Err(); err != nil {
+			log.Fatal(err)
+		}
+
+		e.ensureEnvVariables()
+
+		os.Remove(e.Path + "/.envrc")
+	}
+}
 func (e *OcEnv) Start() {
-	me, err := user.Current()
-	if err != nil {
-		panic(err)
-	}
-
-	pa := os.ProcAttr{
-		Files: []*os.File{os.Stdin, os.Stdout, os.Stderr},
-		Dir:   e.Path,
-	}
-
 	shell := os.Getenv("SHELL")
 
 	fmt.Print("Switching to OpenShift environment " + e.Options.Positional.Alias + "\n")
-	proc, err := os.StartProcess(shell, []string{}, &pa)
-	if err != nil {
-		panic(err)
-	}
-
-	state, err := proc.Wait()
-	if err != nil {
-		panic(err)
-	}
+	fmt.Printf("%s %s\n", shell, e.Path+"/.ocenv")
+	cmd := exec.Command(shell, "--rcfile", e.Path+"/.ocenv")
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Dir = e.Path
+	_ = cmd.Run() // add error checking
 
 	e.killChilds()
 
-	fmt.Printf("Exited OpenShift environment %s\n", state.String())
+	fmt.Printf("Exited OpenShift environment\n")
 
 }
 func (e *OcEnv) killChilds() {
@@ -176,14 +192,14 @@ func (e *OcEnv) ensureEnvDir() {
 }
 func (e *OcEnv) ensureEnvVariables() {
 	envContent := `
-export KUBECONFIG="$(pwd)/kubeconfig.json"
-export OCM_CONFIG="$(pwd)/ocm.json"
-PATH_add ` + e.binPath() + `
+export KUBECONFIG="` + e.Path + `/kubeconfig.json"
+export OCM_CONFIG="` + e.Path + `/ocm.json"
+export PATH="` + e.Path + `/bin:` + os.Getenv("PATH") + `"
 `
 	if e.Options.ClusterId != "" {
 		envContent = envContent + "export CLUSTERID=\"" + e.Options.ClusterId + "\"\n"
 	}
-	direnvfile, err := os.Create(e.Path + "/.envrc")
+	direnvfile, err := os.Create(e.Path + "/.ocenv")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -192,15 +208,6 @@ PATH_add ` + e.binPath() + `
 		log.Fatal(err)
 	}
 	defer direnvfile.Close()
-}
-
-func (e *OcEnv) allowDirenv() {
-	cmd := exec.Command("direnv", "allow")
-	cmd.Dir = e.Path
-	err := cmd.Run()
-	if err != nil {
-		log.Fatalf("Running `direnv` finished with error: %v", err)
-	}
 }
 
 func (e *OcEnv) createBins() {
