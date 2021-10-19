@@ -199,7 +199,7 @@ export OCM_CONFIG="` + e.Path + `/ocm.json"
 export PATH="` + e.Path + `/bin:` + os.Getenv("PATH") + `"
 `
 	if e.Options.ClusterId != "" {
-		envContent = envContent + "export CLUSTERID=\"" + e.Options.ClusterId + "\"\n"
+		envContent = envContent + "export CLUSTERID=" + e.Options.ClusterId + "\n"
 	}
 	direnvfile, err := os.Create(e.Path + "/.ocenv")
 	if err != nil {
