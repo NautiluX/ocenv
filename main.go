@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -14,6 +15,8 @@ import (
 	"syscall"
 
 	flags "github.com/jessevdk/go-flags"
+	ocmconfig "github.com/openshift-online/ocm-cli/pkg/config"
+	"gopkg.in/yaml.v2"
 )
 
 type Options struct {
@@ -28,16 +31,22 @@ type Options struct {
 	} `positional-args:"yes"`
 }
 
+type Config struct {
+	LoginScripts map[string]string `yaml:"loginScripts"`
+}
+
 type OcEnv struct {
 	Path    string
 	Exists  bool
 	Options Options
+	Config  Config
 }
 
 func init() {
 }
 
 func main() {
+	config := getConfig()
 	options := Options{}
 	complete()
 	flags.Parse(&options)
@@ -59,6 +68,7 @@ func main() {
 	env := OcEnv{
 		Path:    os.Getenv("HOME") + "/ocenv/" + options.Positional.Alias,
 		Options: options,
+		Config:  config,
 	}
 	env.Setup()
 	if options.DeleteEnv {
@@ -75,6 +85,26 @@ func main() {
 		env.Delete()
 	}
 
+}
+
+func getConfig() Config {
+	config := Config{
+		LoginScripts: map[string]string{},
+	}
+	configFilePath := os.Getenv("HOME") + "/.ocenv.yaml"
+	if _, err := os.Stat(configFilePath); os.IsNotExist(err) {
+		return config
+	}
+	yamlFile, err := ioutil.ReadFile(configFilePath)
+	if err != nil {
+		log.Printf("Failed to read config yaml %s: %v ", configFilePath, err)
+	}
+	err = yaml.Unmarshal(yamlFile, &config)
+	if err != nil {
+		log.Fatalf("Unmarshal: %v", err)
+	}
+
+	return config
 }
 
 func (e *OcEnv) Setup() {
@@ -222,19 +252,20 @@ func (e *OcEnv) createBins() {
 	e.createBin("oct", "ocm tunnel "+e.Options.ClusterId)
 	e.createBin("ocl", "ocm cluster login --token "+e.Options.ClusterId)
 	e.createBin("ocd", "ocm describe cluster "+e.Options.ClusterId)
+	loginScript := e.getLoginScript()
 	ocb := `
 #!/bin/bash
 
 set -euo pipefail
 
 sudo ls`
-	if e.Options.LoginScript != "" {
+	if loginScript != "" {
 		ocb += `
 while true; do
   sleep 30s
-  ` + e.Options.LoginScript + `
+  ` + loginScript + `
 done &
-` + e.Options.LoginScript + `
+` + loginScript + `
 echo $! >> .killpids
 `
 		ocb += `
@@ -245,6 +276,23 @@ ocm backplane login ` + e.Options.ClusterId + `
 `
 	}
 	e.createBin("ocb", ocb)
+}
+
+func (e *OcEnv) getLoginScript() string {
+	if e.Options.LoginScript != "" {
+		return e.Options.LoginScript
+	}
+	cfg, err := ocmconfig.Load()
+	if err != nil || cfg == nil {
+		fmt.Println("Can't read ocm config")
+		return ""
+	}
+	fmt.Printf("loginscripts from config: %v", e.Config.LoginScripts)
+	if val, ok := e.Config.LoginScripts[cfg.URL]; ok {
+		fmt.Printf("Using login script from config: %s", val)
+		return val
+	}
+	return ""
 }
 
 func (e *OcEnv) createBin(cmd, content string) {

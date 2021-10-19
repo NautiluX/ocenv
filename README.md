@@ -25,6 +25,19 @@ Optionally, you can run `ocenv -c my-cluster-id my-cluster` to set the `$CLUSTER
 
 You can leave an environment by pressing `ctrl+D`.
 
+### OCM Environment Auto-detection
+
+You can let ocenv detect the OCM environment and select a login script based on the environment you're currently logged in.
+This will spare you to pass a script with the `-l` argument each time you log in.
+To use this feature, provide your login scripts in the config file `~/.ocenv.yaml` like in the following example:
+
+```
+loginScripts:
+  https://api.stage.openshift.com: ocm-stage-login
+  https://api.openshift.com: ocm-prod-login
+  https://api.integration.openshift.com: ocm-int-login
+```
+
 ### Example workflows
 
 #### Use backplane to log in and come back later
