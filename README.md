@@ -7,6 +7,12 @@ Tooling to easily access and switch between different OpenShift and/or OSD clust
 go get github.com/NautiluX/ocenv
 ```
 
+To enable tab completion, add the following line to your `~/.bashrc` or similar init files.
+
+```
+complete -C ocenv ocenv
+```
+
 ## Usage
 
 `ocenv` can be used to log in to several OpenShift clusters at the same time. Each cluster is referred to by a user-defined alias.

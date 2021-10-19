@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"reflect"
 	"strconv"
 	"strings"
 	"syscall"
@@ -38,6 +39,7 @@ func init() {
 
 func main() {
 	options := Options{}
+	complete()
 	flags.Parse(&options)
 
 	if flag.CommandLine.NArg() > 0 {
@@ -268,4 +270,54 @@ func (e *OcEnv) ensureFile(filename string) (file *os.File) {
 
 func (e *OcEnv) binPath() string {
 	return e.Path + "/bin"
+}
+
+func complete() {
+	if _, ok := os.LookupEnv("COMP_LINE"); !ok {
+		return
+	}
+
+	if len(os.Args) < 3 {
+		os.Exit(1)
+	}
+
+	partialWord := os.Args[2]
+	preceedingWord := ""
+	if len(os.Args) > 3 {
+		preceedingWord = os.Args[3]
+	}
+
+	if strings.HasPrefix(partialWord, "-") {
+		optionsType := reflect.TypeOf(&Options{})
+		for i := 0; i < optionsType.Elem().NumField(); i++ {
+			short := "-" + optionsType.Elem().Field(i).Tag.Get("short")
+			long := "--" + optionsType.Elem().Field(i).Tag.Get("long")
+
+			if strings.HasPrefix(long, partialWord) {
+				fmt.Println(long)
+			}
+			if strings.HasPrefix(short, partialWord) {
+				fmt.Println(short)
+			}
+		}
+		os.Exit(0)
+
+	}
+
+	// can't complete cluster IDs (yet?)
+	if preceedingWord == "-c" {
+		os.Exit(0)
+	}
+
+	files, err := os.ReadDir(os.Getenv("HOME") + "/ocenv/")
+	if err != nil {
+		log.Fatal(err)
+	}
+	for _, f := range files {
+		if f.IsDir() && strings.HasPrefix(f.Name(), partialWord) {
+			fmt.Println(f.Name())
+		}
+	}
+
+	os.Exit(0)
 }
