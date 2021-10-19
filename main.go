@@ -280,16 +280,16 @@ ocm backplane login ` + e.Options.ClusterId + `
 
 func (e *OcEnv) getLoginScript() string {
 	if e.Options.LoginScript != "" {
+		fmt.Printf("Using login script from -l argument: %s\n", e.Options.LoginScript)
 		return e.Options.LoginScript
 	}
 	cfg, err := ocmconfig.Load()
 	if err != nil || cfg == nil {
-		fmt.Println("Can't read ocm config")
+		fmt.Println("Can't read ocm config. Ignoring.")
 		return ""
 	}
-	fmt.Printf("loginscripts from config: %v", e.Config.LoginScripts)
 	if val, ok := e.Config.LoginScripts[cfg.URL]; ok {
-		fmt.Printf("Using login script from config: %s", val)
+		fmt.Printf("Using login script from config: %s\n", val)
 		return val
 	}
 	return ""
