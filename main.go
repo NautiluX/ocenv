@@ -20,15 +20,23 @@ import (
 )
 
 type Options struct {
-	ClusterId        string `short:"c" long:"cluster-id" description:"Cluster ID"`
-	LoginScript      string `short:"l" long:"login-script" description:"OCM login script to execute in a loop in ocb every 30 seconds"`
-	ExportKubeConfig bool   `short:"k" long:"export-kubeconfig" description:"Output export kubeconfig statement, to use environment outside of directory"`
-	ResetEnv         bool   `short:"r" long:"reset" description:"Reset environment"`
-	TempEnv          bool   `short:"t" long:"temp" description:"Delete environment on exit"`
-	DeleteEnv        bool   `short:"d" long:"delete" description:"Delete environment"`
-	Positional       struct {
+	DeleteEnv        bool `short:"d" long:"delete" description:"Delete environment"`
+	TempEnv          bool `short:"t" long:"temp" description:"Delete environment on exit"`
+	ResetEnv         bool `short:"r" long:"reset" description:"Reset environment"`
+	ExportKubeConfig bool `short:"k" long:"export-kubeconfig" description:"Output export kubeconfig statement, to use environment outside of directory"`
+
+	Positional struct {
 		Alias string
 	} `positional-args:"yes"`
+
+	// Options for OCM login
+	ClusterId   string `short:"c" long:"cluster-id" description:"Cluster ID"`
+	LoginScript string `short:"l" long:"login-script" description:"OCM login script to execute in a loop in ocb every 30 seconds"`
+
+	// Options for individual cluster login
+	Username string `short:"u" long:"username" description:"Username for individual cluster login"`
+	Password string `short:"p" long:"password" description:"Password for individual cluster login"`
+	Url      string `short:"a" long:"api" description:"OpenShift API URL for individual cluster login"`
 }
 
 type Config struct {
@@ -250,7 +258,7 @@ func (e *OcEnv) createBins() {
 		}
 	}
 	e.createBin("oct", "ocm tunnel "+e.Options.ClusterId)
-	e.createBin("ocl", "ocm cluster login --token "+e.Options.ClusterId)
+	e.createBin("ocl", e.generateLoginCommand())
 	e.createBin("ocd", "ocm describe cluster "+e.Options.ClusterId)
 	loginScript := e.getLoginScript()
 	ocb := `
@@ -276,6 +284,25 @@ ocm backplane login ` + e.Options.ClusterId + `
 `
 	}
 	e.createBin("ocb", ocb)
+}
+
+func (e *OcEnv) generateLoginCommand() string {
+	if e.Options.Username != "" {
+		return e.generateLoginCommandIndividualCluster()
+	}
+	return "ocm cluster login --token " + e.Options.ClusterId
+}
+
+func (e *OcEnv) generateLoginCommandIndividualCluster() string {
+	if e.Options.Url == "" {
+		panic("Username set but no API Url. Use --api to specify it.")
+	}
+	cmd := "oc login -u " + e.Options.Username
+	if e.Options.Password != "" {
+		cmd += " -p " + e.Options.Password
+	}
+	cmd += " " + e.Options.Url
+	return cmd
 }
 
 func (e *OcEnv) getLoginScript() string {
