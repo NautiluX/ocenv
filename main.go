@@ -34,9 +34,10 @@ type Options struct {
 	LoginScript string `short:"l" long:"login-script" description:"OCM login script to execute in a loop in ocb every 30 seconds"`
 
 	// Options for individual cluster login
-	Username string `short:"u" long:"username" description:"Username for individual cluster login"`
-	Password string `short:"p" long:"password" description:"Password for individual cluster login"`
-	Url      string `short:"a" long:"api" description:"OpenShift API URL for individual cluster login"`
+	Username   string `short:"u" long:"username" description:"Username for individual cluster login"`
+	Password   string `short:"p" long:"password" description:"Password for individual cluster login"`
+	Url        string `short:"a" long:"api" description:"OpenShift API URL for individual cluster login"`
+	Kubeconfig string `short:"K" long:"kubeconfig" description:"KUBECONFIG file to use in this env (will be copied to the environment dir)"`
 }
 
 type Config struct {
@@ -124,6 +125,7 @@ func (e *OcEnv) Setup() {
 		fmt.Println("Setting up environment...")
 		e.createBins()
 		e.ensureEnvVariables()
+		e.createKubeconfig()
 	}
 }
 
@@ -230,6 +232,7 @@ func (e *OcEnv) ensureEnvDir() {
 	}
 	e.Exists = true
 }
+
 func (e *OcEnv) ensureEnvVariables() {
 	envContent := `
 export KUBECONFIG="` + e.Path + `/kubeconfig.json"
@@ -258,7 +261,9 @@ func (e *OcEnv) createBins() {
 		}
 	}
 	e.createBin("oct", "ocm tunnel "+e.Options.ClusterId)
-	e.createBin("ocl", e.generateLoginCommand())
+	if e.Options.Kubeconfig == "" {
+		e.createBin("ocl", e.generateLoginCommand())
+	}
 	e.createBin("ocd", "ocm describe cluster "+e.Options.ClusterId)
 	loginScript := e.getLoginScript()
 	ocb := `
@@ -326,10 +331,28 @@ func (e *OcEnv) createBin(cmd, content string) {
 	filepath := e.binPath() + "/" + cmd
 	scriptfile := e.ensureFile(filepath)
 	defer scriptfile.Close()
-	scriptfile.WriteString(content)
-	err := os.Chmod(filepath, 0744)
+	_, err := scriptfile.WriteString(content)
+	if err != nil {
+		panic(fmt.Errorf("Error writing to file %s: %v \n", filepath, err))
+	}
+	err = os.Chmod(filepath, 0744)
 	if err != nil {
 		log.Fatalf("Can't update permissions on file %s: %v", filepath, err)
+	}
+}
+
+func (e *OcEnv) createKubeconfig() {
+	if e.Options.Kubeconfig != "" {
+		input, err := ioutil.ReadFile(e.Options.Kubeconfig)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
+		err = ioutil.WriteFile(e.Path+"/kubeconfig.json", input, 0644)
+		if err != nil {
+			panic(fmt.Errorf("Error creating %s: %v \n", e.Path+"/kubeconfig.json", err))
+		}
 	}
 }
 
