@@ -99,7 +99,7 @@ log in with `ocl`
 $ ocl
 ```
 
-##### Use existing KUBECONFIG
+##### With existing KUBECONFIG
 
 Log in with a kubeconfig that exists in the filesystem:
 
