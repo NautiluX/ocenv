@@ -30,47 +30,6 @@ When using `ocm` you can use the shorthands `ocl` to log in to the cluster, `oct
 
 You can leave an environment by pressing `ctrl+D`.
 
-### Logging in to Individual Clusters
-
-`ocenv` supports creating environments for non-ocm-managed clusters as well.
-You can either provide an API URL or an existing KUBECONFIG.
-
-#### With Username and Password
-
-Set username, API url, and (optionally) password
-
-```
-$ ocenv -u myuser -p topsecret -a https://api.mycluster.com:6443 mycluster
-```
-
-Careful: The password will be stored in clear text if you pass it.
-In most cases it will be better to read it from STDIN on login.
-
-log in with `ocl`
-
-```
-$ ocl
-```
-
-#### Use existing KUBECONFIG
-
-Log in with a kubeconfig that exists in the filesystem:
-
-```
-$ ocenv --kubeconfig ~/kube/config mycluster
-```
-
-Log in with a kubeconfig from clipboard (linux with xclip):
-
-```
-$ ocenv --kubeconfig <(xclip -o) mycluster
-```
-
-Log in with a kubeconfig from clipboard (Mac):
-
-```
-$ ocenv --kubeconfig <(pbpaste) mycluster
-```
 
 ### OCM Environment Auto-detection
 
@@ -87,7 +46,7 @@ loginScripts:
 
 ### Example workflows
 
-#### Use backplane to log in and come back later
+#### Use backplane to log in to OSD cluster and come back later
 
 ```
 $ ocenv -l prod-login.sh -c hf203489-23fsdf-23rsdf my-cluster
@@ -116,4 +75,46 @@ $ ocb # login to the cluster
 ... in some other shell ...
 $ `ocenv -k my-cluster` # use KUBECONFIG from environment
 $ oc get pods ...
+```
+
+#### Logging in to Individual Clusters
+
+`ocenv` supports creating environments for non-ocm-managed clusters as well.
+You can either provide an API URL or an existing KUBECONFIG.
+
+##### With Username and Password
+
+Set username, API url, and (optionally) password
+
+```
+$ ocenv -u myuser -p topsecret -a https://api.mycluster.com:6443 mycluster
+```
+
+Careful: The password will be stored in clear text if you pass it.
+In most cases it will be better to read it from STDIN on login.
+
+log in with `ocl`
+
+```
+$ ocl
+```
+
+##### Use existing KUBECONFIG
+
+Log in with a kubeconfig that exists in the filesystem:
+
+```
+$ ocenv --kubeconfig ~/kube/config mycluster
+```
+
+Log in with a kubeconfig from clipboard (linux with xclip):
+
+```
+$ ocenv --kubeconfig <(xclip -o) mycluster
+```
+
+Log in with a kubeconfig from clipboard (Mac):
+
+```
+$ ocenv --kubeconfig <(pbpaste) mycluster
 ```
